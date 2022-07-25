@@ -1,0 +1,16 @@
+name: 'Devsnest Frontend Challenge Testing'
+description: ''
+author: 'Devsnest'
+
+runs:
+  using: 'node12'
+  main: 'dist/index.js'
+
+inputs:
+  user_id:
+    description: 'user id'
+    required: true
+
+  tha_no:
+    description: 'frontend tha number'
+    required: true
