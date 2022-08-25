@@ -14,3 +14,7 @@ inputs:
   tha_no:
     description: 'frontend tha number'
     required: true
+
+  bot_token:
+    description: 'user bot token'
+    required: true

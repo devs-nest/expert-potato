@@ -1,6 +1,19 @@
 require('./sourcemap-register.js');/******/ (() => { // webpackBootstrap
 /******/ 	var __webpack_modules__ = ({
 
+/***/ 5935:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.FRONTEND_CHALLENGES_SUBMIT_TEST_FILE = exports.FRONTEND_CHALLENGES_TEST_CASES = void 0;
+exports.FRONTEND_CHALLENGES_TEST_CASES = `http://localhost:8000/api/v1/frontend-challenge/fetch_frontend_testcases`;
+exports.FRONTEND_CHALLENGES_SUBMIT_TEST_FILE = `http://localhost:8000/api/v1/fe-submissions`;
+
+
+/***/ }),
+
 /***/ 3248:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -45,44 +58,63 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core = __importStar(__nccwpck_require__(6914));
 const fs_1 = __importDefault(__nccwpck_require__(5747));
 const path_1 = __importDefault(__nccwpck_require__(5622));
-const axios_1 = __importDefault(__nccwpck_require__(4177));
 const shelljs_1 = __importDefault(__nccwpck_require__(2227));
+const services_1 = __nccwpck_require__(1666);
+const utils_1 = __nccwpck_require__(4507);
+const TestFolderPath = 'src/__test__/';
+const TestFileName = 'App.test.js';
+const JestOutputJSONName = 'test-output.json';
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
+            // acces github secrets
             const user_id_secret = core.getInput('user_id') || 'no user id';
             const tha_no_secret = core.getInput('tha_no') || '0';
-            if (fs_1.default.existsSync(path_1.default.join(process.cwd(), 'Day01'))) {
+            const bot_token = core.getInput('bot_token') || '0';
+            if (tha_no_secret) {
                 try {
-                    const response = axios_1.default.get(`https://h3cv9k.sse.codesandbox.io/frontend_challeges?tha_no=${tha_no_secret}`);
-                    const { data } = yield response;
-                    const { test_file, tha_no, folder_name } = data.data.attributes;
-                    shelljs_1.default.exec(`cd ${folder_name} && npm ci`);
-                    if (!fs_1.default.existsSync('src/__test__/')) {
-                        fs_1.default.mkdirSync(path_1.default.join(process.cwd(), folder_name, 'src/__test__/'), {
-                            recursive: true
-                        });
-                    }
-                    fs_1.default.writeFileSync(path_1.default.join(process.cwd(), folder_name, test_file.path), test_file.content);
-                    shelljs_1.default.exec(`cd ${folder_name} && npm run test-out`);
-                    fs_1.default.readFile(path_1.default.join(process.cwd(), folder_name, 'test-output.json'), (err, file) => {
-                        if (err)
-                            throw err;
+                    // fetch test cases content
+                    const data = yield (0, services_1.fetchFrontendChallengesTestCase)(tha_no_secret);
+                    const { challenge_id, content, folder_name } = data;
+                    // folder location
+                    const goFolderPath = `cd ${folder_name}`;
+                    // install dependency from package.lock.json
+                    shelljs_1.default.exec(`${goFolderPath} && npm ci`);
+                    // create test folder
+                    fs_1.default.mkdirSync(path_1.default.join(process.cwd(), folder_name, TestFolderPath), {
+                        recursive: true
+                    });
+                    // create test file content
+                    fs_1.default.writeFileSync(path_1.default.join(process.cwd(), folder_name, `${TestFolderPath}/${TestFileName}`), content);
+                    // run jest runner
+                    shelljs_1.default.exec(`${goFolderPath} && npm run test-out`);
+                    // deserialize the test output json
+                    fs_1.default.readFile(path_1.default.join(process.cwd(), folder_name, JestOutputJSONName), (err, file) => __awaiter(this, void 0, void 0, function* () {
+                        if (err) {
+                            return core.info(err.message);
+                        }
                         const test_result = JSON.parse(file.toString());
                         if (test_result) {
-                            axios_1.default.post(`https://h3cv9k.sse.codesandbox.io/frontend_challeges?user_id=${user_id_secret}&tha_no=${tha_no}`, {
-                                data: {
-                                    type: 'frontend_challeges',
-                                    attributes: {
-                                        tha_no,
-                                        user_id: user_id_secret,
-                                        folder_name,
-                                        test_result
-                                    }
-                                }
-                            });
+                            const { result, total_test_cases, passed_test_cases, score } = (0, utils_1.filterJestTestResult)(test_result);
+                            try {
+                                yield (0, services_1.fetchUpdateTestResult)({
+                                    user_id: user_id_secret,
+                                    frontend_challenge_id: challenge_id,
+                                    passed_test_cases,
+                                    total_test_cases,
+                                    result,
+                                    score,
+                                    bot_token
+                                });
+                            }
+                            catch (e) {
+                                core.info('problem in update test result!');
+                            }
                         }
-                    });
+                        else {
+                            core.info('no tesult found!');
+                        }
+                    }));
                 }
                 catch (error) {
                     if (error instanceof Error)
@@ -90,7 +122,7 @@ function run() {
                 }
             }
             else {
-                core.info('No THA added by Devsnest ');
+                core.info('No tha added by Devsnest yet!');
             }
         }
         catch (error) {
@@ -100,6 +132,122 @@ function run() {
     });
 }
 run();
+
+
+/***/ }),
+
+/***/ 1666:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.fetchUpdateTestResult = exports.fetchFrontendChallengesTestCase = void 0;
+const axios_1 = __importDefault(__nccwpck_require__(4177));
+const Api_1 = __nccwpck_require__(5935);
+/**
+ * Fetch Test Cases content and folder
+ */
+const fetchFrontendChallengesTestCase = (tha_no_secret) => __awaiter(void 0, void 0, void 0, function* () {
+    const response = axios_1.default.get(`${Api_1.FRONTEND_CHALLENGES_TEST_CASES}?id=${tha_no_secret}`);
+    const { data } = (yield response);
+    return data.attributes;
+});
+exports.fetchFrontendChallengesTestCase = fetchFrontendChallengesTestCase;
+/**
+ * update test result
+ */
+const fetchUpdateTestResult = (data) => __awaiter(void 0, void 0, void 0, function* () {
+    const { user_id, frontend_challenge_id, total_test_cases, passed_test_cases, result, score, bot_token } = data;
+    yield axios_1.default.post(Api_1.FRONTEND_CHALLENGES_SUBMIT_TEST_FILE, {
+        data: {
+            type: 'fe_submissions',
+            attributes: {
+                user_id,
+                frontend_challenge_id,
+                total_test_cases,
+                passed_test_cases,
+                score,
+                question_type: 'github',
+                is_submitted: true,
+                result
+            }
+        }
+    }, {
+        headers: {
+            ACCEPT: 'application/vnd.api+json',
+            'Content-Type': 'application/vnd.api+json',
+            Token: bot_token
+        }
+    });
+});
+exports.fetchUpdateTestResult = fetchUpdateTestResult;
+
+
+/***/ }),
+
+/***/ 617:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.filterJestTestResult = void 0;
+const filterJestTestResult = (jestResult) => {
+    const filter_test_result = [];
+    const total_test_cases = jestResult.numTotalTests;
+    const passed_test_cases = jestResult.numPassedTests;
+    const score = passed_test_cases * 10;
+    const assertionResults = jestResult.testResults[0].assertionResults;
+    for (const result of assertionResults) {
+        const { status, title } = result;
+        filter_test_result.push({ title, status });
+    }
+    return {
+        result: filter_test_result,
+        total_test_cases,
+        passed_test_cases,
+        score
+    };
+};
+exports.filterJestTestResult = filterJestTestResult;
+
+
+/***/ }),
+
+/***/ 4507:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __exportStar = (this && this.__exportStar) || function(m, exports) {
+    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+__exportStar(__nccwpck_require__(617), exports);
 
 
 /***/ }),
@@ -5885,7 +6033,7 @@ function setup(env) {
 	createDebug.disable = disable;
 	createDebug.enable = enable;
 	createDebug.enabled = enabled;
-	createDebug.humanize = __nccwpck_require__(4657);
+	createDebug.humanize = __nccwpck_require__(7461);
 	createDebug.destroy = destroy;
 
 	Object.keys(env).forEach(key => {
@@ -10917,7 +11065,7 @@ function regExpEscape (s) {
 
 /***/ }),
 
-/***/ 4657:
+/***/ 7461:
 /***/ ((module) => {
 
 /**
@@ -11237,7 +11385,7 @@ function __ncc_wildcard$0 (arg) {
   else if (arg === "sort.js" || arg === "sort") return __nccwpck_require__(7870);
   else if (arg === "tail.js" || arg === "tail") return __nccwpck_require__(7029);
   else if (arg === "tempdir.js" || arg === "tempdir") return __nccwpck_require__(3544);
-  else if (arg === "test.js" || arg === "test") return __nccwpck_require__(1712);
+  else if (arg === "test.js" || arg === "test") return __nccwpck_require__(4657);
   else if (arg === "to.js" || arg === "to") return __nccwpck_require__(1139);
   else if (arg === "toEnd.js" || arg === "toEnd") return __nccwpck_require__(2851);
   else if (arg === "touch.js" || arg === "touch") return __nccwpck_require__(3771);
@@ -14525,7 +14673,7 @@ module.exports.clearCache = clearCache;
 
 /***/ }),
 
-/***/ 1712:
+/***/ 4657:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
 var common = __nccwpck_require__(9236);

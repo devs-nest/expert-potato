@@ -1,60 +1,83 @@
 import * as core from '@actions/core'
 import fs from 'fs'
 import path from 'path'
-import axios from 'axios'
 import shell from 'shelljs'
+import {
+  fetchFrontendChallengesTestCase,
+  fetchUpdateTestResult
+} from './services'
+import {filterJestTestResult} from './utils'
+
+const TestFolderPath = 'src/__test__/'
+const TestFileName = 'App.test.js'
+const JestOutputJSONName = 'test-output.json'
 
 async function run(): Promise<void> {
   try {
+    // acces github secrets
     const user_id_secret = core.getInput('user_id') || 'no user id'
     const tha_no_secret = core.getInput('tha_no') || '0'
+    const bot_token = core.getInput('bot_token') || '0'
 
-    if (fs.existsSync(path.join(process.cwd(), 'Day01'))) {
+    if (tha_no_secret) {
       try {
-        const response = axios.get(
-          `https://h3cv9k.sse.codesandbox.io/frontend_challeges?tha_no=${tha_no_secret}`
-        )
+        // fetch test cases content
+        const data = await fetchFrontendChallengesTestCase(tha_no_secret)
+        const {challenge_id, content, folder_name} = data
 
-        const {data} = await response
+        // folder location
+        const goFolderPath = `cd ${folder_name}`
 
-        const {test_file, tha_no, folder_name} = data.data.attributes
+        // install dependency from package.lock.json
+        shell.exec(`${goFolderPath} && npm ci`)
 
-        shell.exec(`cd ${folder_name} && npm ci`)
+        // create test folder
+        fs.mkdirSync(path.join(process.cwd(), folder_name, TestFolderPath), {
+          recursive: true
+        })
 
-        if (!fs.existsSync('src/__test__/')) {
-          fs.mkdirSync(path.join(process.cwd(), folder_name, 'src/__test__/'), {
-            recursive: true
-          })
-        }
-
+        // create test file content
         fs.writeFileSync(
-          path.join(process.cwd(), folder_name, test_file.path),
-          test_file.content
+          path.join(
+            process.cwd(),
+            folder_name,
+            `${TestFolderPath}/${TestFileName}`
+          ),
+          content
         )
 
-        shell.exec(`cd ${folder_name} && npm run test-out`)
+        // run jest runner
+        shell.exec(`${goFolderPath} && npm run test-out`)
 
+        // deserialize the test output json
         fs.readFile(
-          path.join(process.cwd(), folder_name, 'test-output.json'),
-          (err, file: Buffer) => {
-            if (err) throw err
+          path.join(process.cwd(), folder_name, JestOutputJSONName),
+          async (err, file: Buffer) => {
+            if (err) {
+              return core.info(err.message)
+            }
+
             const test_result = JSON.parse(file.toString())
 
             if (test_result) {
-              axios.post(
-                `https://h3cv9k.sse.codesandbox.io/frontend_challeges?user_id=${user_id_secret}&tha_no=${tha_no}`,
-                {
-                  data: {
-                    type: 'frontend_challeges',
-                    attributes: {
-                      tha_no,
-                      user_id: user_id_secret,
-                      folder_name,
-                      test_result
-                    }
-                  }
-                }
-              )
+              const {result, total_test_cases, passed_test_cases, score} =
+                filterJestTestResult(test_result)
+
+              try {
+                await fetchUpdateTestResult({
+                  user_id: user_id_secret,
+                  frontend_challenge_id: challenge_id,
+                  passed_test_cases,
+                  total_test_cases,
+                  result,
+                  score,
+                  bot_token
+                })
+              } catch (e) {
+                core.info('problem in update test result!')
+              }
+            } else {
+              core.info('no tesult found!')
             }
           }
         )
@@ -62,7 +85,7 @@ async function run(): Promise<void> {
         if (error instanceof Error) core.setFailed(error.message)
       }
     } else {
-      core.info('No THA added by Devsnest ')
+      core.info('No tha added by Devsnest yet!')
     }
   } catch (error) {
     if (error instanceof Error) core.setFailed(error.message)

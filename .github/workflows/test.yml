@@ -3,7 +3,6 @@ name: Devsnest Frontend Challenge Testing
 on: [push]
 
 jobs:
-
   hello-world:
     runs-on: ubuntu-latest
     steps:
@@ -12,3 +11,4 @@ jobs:
         with:
           user_id: ${{ secrets.DEVSNEST_USER_ID }}
           tha_no: ${{ secrets.DEVSNEST_THA_NO }}
+          bot_token: ${{ secrets.DEVSNEST_BOT_TOKEN }}
