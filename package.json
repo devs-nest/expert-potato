@@ -11,7 +11,8 @@
     "lint": "eslint src/**/*.ts",
     "package": "ncc build --source-map --license licenses.txt",
     "test": "jest",
-    "all": "pnpm run build && pnpm run format && pnpm run lint && pnpm run package && pnpm test"
+    "all": "pnpm run build && pnpm run package",
+    "start": "pnpm all && node dist/index.js"
   },
   "repository": {
     "type": "git",

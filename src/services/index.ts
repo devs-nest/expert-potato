@@ -35,22 +35,25 @@ export const fetchUpdateTestResult = async (
     score,
     bot_token
   } = data
+
+  const newData = {
+    type: 'fe_submissions',
+    attributes: {
+      user_id,
+      frontend_challenge_id,
+      total_test_cases,
+      passed_test_cases,
+      score,
+      question_type: 'github',
+      is_submitted: true,
+      result
+    }
+  }
+
   await axios.post(
     FRONTEND_CHALLENGES_SUBMIT_TEST_FILE,
     {
-      data: {
-        type: 'fe_submissions',
-        attributes: {
-          user_id,
-          frontend_challenge_id,
-          total_test_cases,
-          passed_test_cases,
-          score,
-          question_type: 'github',
-          is_submitted: true,
-          result
-        }
-      }
+      data: newData
     },
     {
       headers: {

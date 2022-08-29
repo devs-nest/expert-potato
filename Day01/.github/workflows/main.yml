@@ -1,0 +1,15 @@
+name: Devsnest Tha Testing
+
+on: [push]
+
+jobs:
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Custom Test Results
+        uses: Bivas-Biswas/learn-gihub-actions@main
+        with:
+          user_id: '1234'
+          tha_no: '20'

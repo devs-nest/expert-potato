@@ -171,20 +171,21 @@ exports.fetchFrontendChallengesTestCase = fetchFrontendChallengesTestCase;
  */
 const fetchUpdateTestResult = (data) => __awaiter(void 0, void 0, void 0, function* () {
     const { user_id, frontend_challenge_id, total_test_cases, passed_test_cases, result, score, bot_token } = data;
-    yield axios_1.default.post(Api_1.FRONTEND_CHALLENGES_SUBMIT_TEST_FILE, {
-        data: {
-            type: 'fe_submissions',
-            attributes: {
-                user_id,
-                frontend_challenge_id,
-                total_test_cases,
-                passed_test_cases,
-                score,
-                question_type: 'github',
-                is_submitted: true,
-                result
-            }
+    const newData = {
+        type: 'fe_submissions',
+        attributes: {
+            user_id,
+            frontend_challenge_id,
+            total_test_cases,
+            passed_test_cases,
+            score,
+            question_type: 'github',
+            is_submitted: true,
+            result
         }
+    };
+    yield axios_1.default.post(Api_1.FRONTEND_CHALLENGES_SUBMIT_TEST_FILE, {
+        data: newData
     }, {
         headers: {
             ACCEPT: 'application/vnd.api+json',
