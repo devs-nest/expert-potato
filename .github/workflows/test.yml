@@ -6,7 +6,7 @@ jobs:
   hello-world:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v3.1.0
       - uses: Bivas-Biswas/learn-gihub-actions@main
         with:
           user_id: ${{ secrets.DEVSNEST_USER_ID }}
